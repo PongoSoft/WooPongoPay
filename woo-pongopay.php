@@ -127,9 +127,6 @@ function init_pongopay_gateway_class() {
 			$result = json_decode($response, true);
 			$result['merchant_id'] = $params['merchant_id'];
 
-			$result['success'] = 1;
-			$result['redirectUrl'] = "http://www.google.com";
-
 			return $result;
 		}
 
@@ -205,8 +202,6 @@ function add_pongopay_gateway_class( $methods ) {
 }
 
 add_filter( 'woocommerce_payment_gateways', 'add_pongopay_gateway_class' );
-
-
 
 
 /** 3D Secure **/
