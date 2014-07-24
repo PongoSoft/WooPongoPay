@@ -44,6 +44,7 @@ function init_pongopay_gateway_class() {
 			$this->init_settings();
 
 			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
+			add_action( 'woocommerce_thankyou_'.$this->id, array( $this, 'thankyou' ) );
 		}
 
 		public function init_form_fields() {
@@ -186,28 +187,34 @@ function init_pongopay_gateway_class() {
 
 		}
 
-		/*public function secure_validation() {
-			if($_GET['woo-pongopay'] == "3DSecure") {
+		function thankyou( $order ) {
+			$order = new WC_Order($order);
+			//var_dump($order);
+			//print $_REQUEST['gatewayReference'];
+			$params = array();
+			$params['gatewayReference'] = $_REQUEST['gatewayReference'];
+			$params['merchantId'] = $this->merchantid;
 
-				global $woocommerce;
-				var_dump($woocommerce);
-				die;
-				if($_GET['gatewayReference'] != "") {
-					$url = "https://www.paygenius.co.za/api/web-service/transact";
-					$url .= "?merchantId=".$merchantid;
-					$url .= "&paymentType=checkTransactionDetails";
-					$url .= "&gatewayReference=".$_REQUEST['gatewayReference'];
-					$url .= "&renderFormat";
+			$url = "https://www.paygenius.co.za/api/web-service/transact";
+			$url .= "?merchantId=".$params['merchantId'];
+			$url .= "&paymentType=checkTransactionDetails";
+			$url .= "&gatewayReference=".$params['gatewayReference'];
+			$url .= "&renderFormat";
 
-					$response = file_get_contents($url);
-					$result = json_decode($response, true);
-					var_dump($result);
+			$response = file_get_contents($url);
 
-					die;
-				}
+			if(!$response) return false;
 
+			$result = json_decode($response, true);
+			
+			if($result['success'] == "0") {
+				print "Transaction refusé";
 			}
-		}*/
+			else {
+				print "Transaction accepté";
+			}
+
+		}
 	}
 }
 
