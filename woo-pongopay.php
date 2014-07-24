@@ -31,7 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 function init_pongopay_gateway_class() {
 	class WC_PongoPay_Gateway extends WC_Payment_Gateway {
-		private $merchantid;
+		public $merchantid;
 
 		public function __construct() {
 			$this->id = 'pongopay';
@@ -76,31 +76,22 @@ function init_pongopay_gateway_class() {
 
 		function api_transaction($order) {
 			global $woocommerce;
-			/*  protected $mandatory_parameters = array(
-				    'amount',
-				    'cardNumber',
-				    'cardCvv',
-				    'cardExpiryMonth',
-				    'cardExpiryYear',
-				    'currency',
-				  );
-				  protected $optional_parameters = array(
-				    'gatewayType',
-				    'merchantReference',
-				    'source',
-				    ); */
 
 			$api_url = 'https://www.paygenius.co.za/api/web-service/transact';
 
 			$params = array();
 
-			$params['paymentType'] = "test";
+			$params['gatewayType'] = "0";
+			$params['paymentType'] = "ManualPayment";
 
 			$params['merchantId'] = $this->merchantid;
+			$merchantid = $this->merchantid;
 
-			$params['amount'] = $woocommerce->cart->total;
+			$params['amount'] = $woocommerce->cart->total * 100;
 			$params['cardNumber'] = str_replace(" ", "", $_POST['pongopay-card-number']);
 			$params['cardCvv'] = $_POST['pongopay-card-cvc'];
+
+			$params['returnURL'] = $this->get_return_url( $order );
 
 			//explode expiry date
 			$expiryArr = explode(" / ", $_POST['pongopay-card-expiry']);
@@ -113,12 +104,15 @@ function init_pongopay_gateway_class() {
 			$url = "https://www.paygenius.co.za/api/web-service/transact";
 			$url .= "?merchantId=".$params['merchantId'];
 			$url .= "&amount=".$params['amount'];
-			$url .= "&paymentType=ManualPayment";
+			$url .= "&paymentType=".$params['paymentType'];
+			$url .= "&gatewayType=".$params['gatewayType'];
 			$url .= "&cardNumber=".$params['cardNumber'];
 			$url .= "&cardCvv=".$params['cardCvv'];
 			$url .= "&cardExpiryMonth=".$params['cardExpiryMonth'];
 			$url .= "&cardExpiryYear=".$params['cardExpiryYear'];
 			$url .= "&currency=".$params['currency'];
+			$url .= "&returnURL=".urlencode($params['returnURL']);
+			//$url .= "&force3dsecure=FORCE";
 
 			$response = file_get_contents($url);
 
@@ -160,6 +154,7 @@ function init_pongopay_gateway_class() {
 			$apiTransact = $this->api_transaction($order);
 
 			if($apiTransact['success'] == 0) {
+				$woocommerce->add_error( 'success = 0' );
 				foreach ($apiTransact['errors'] as $error) {
 					$woocommerce->add_error( $error );
 				}
@@ -190,6 +185,29 @@ function init_pongopay_gateway_class() {
 			);
 
 		}
+
+		/*public function secure_validation() {
+			if($_GET['woo-pongopay'] == "3DSecure") {
+
+				global $woocommerce;
+				var_dump($woocommerce);
+				die;
+				if($_GET['gatewayReference'] != "") {
+					$url = "https://www.paygenius.co.za/api/web-service/transact";
+					$url .= "?merchantId=".$merchantid;
+					$url .= "&paymentType=checkTransactionDetails";
+					$url .= "&gatewayReference=".$_REQUEST['gatewayReference'];
+					$url .= "&renderFormat";
+
+					$response = file_get_contents($url);
+					$result = json_decode($response, true);
+					var_dump($result);
+
+					die;
+				}
+
+			}
+		}*/
 	}
 }
 
@@ -202,26 +220,3 @@ function add_pongopay_gateway_class( $methods ) {
 }
 
 add_filter( 'woocommerce_payment_gateways', 'add_pongopay_gateway_class' );
-
-
-/** 3D Secure **/
-
-/*WP_Router::add_route( 'testwoo', array(
-	'path' => 'pay',
-	'query_vars' => array(
-        'sample_argument' => 1,
-    ),
-    'page_callback' => array(get_class(), 'sample_callback'),
-    'page_arguments' => array('sample_argument'),
-    'access_callback' => TRUE,
-    'title' => 'WP Router Sample Page',
-    'template' => array('sample-page.php', dirname(__FILE__).DIRECTORY_SEPARATOR.'sample-page.php')
-) );*/
-
-//if($_GET['pagename'] == "pongopay3DSecure") { die; }
-
-/*add_action('parse_request', 'pongopay_router');
-
-function pongopay_router() {
-	var_dump($_SERVER['REQUEST_URI']);
-}*/
