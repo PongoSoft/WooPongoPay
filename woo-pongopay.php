@@ -113,7 +113,7 @@ function init_pongopay_gateway_class() {
 			$url .= "&cardExpiryYear=".$params['cardExpiryYear'];
 			$url .= "&currency=".$params['currency'];
 			$url .= "&returnURL=".urlencode($params['returnURL']);
-			//$url .= "&force3dsecure=FORCE";
+			$url .= "&force3dsecure=FORCE";
 
 			$response = file_get_contents($url);
 
@@ -191,27 +191,32 @@ function init_pongopay_gateway_class() {
 			$order = new WC_Order($order);
 			//var_dump($order);
 			//print $_REQUEST['gatewayReference'];
-			$params = array();
-			$params['gatewayReference'] = $_REQUEST['gatewayReference'];
-			$params['merchantId'] = $this->merchantid;
-
-			$url = "https://www.paygenius.co.za/api/web-service/transact";
-			$url .= "?merchantId=".$params['merchantId'];
-			$url .= "&paymentType=checkTransactionDetails";
-			$url .= "&gatewayReference=".$params['gatewayReference'];
-			$url .= "&renderFormat";
-
-			$response = file_get_contents($url);
-
-			if(!$response) return false;
-
-			$result = json_decode($response, true);
 			
-			if($result['success'] == "0") {
-				print "Transaction refusé";
-			}
-			else {
-				print "Transaction accepté";
+			if($_REQUEST['gatewayReference']) {
+				$params = array();
+				$params['gatewayReference'] = $_REQUEST['gatewayReference'];
+				$params['merchantId'] = $this->merchantid;
+
+				$url = "https://www.paygenius.co.za/api/web-service/transact";
+				$url .= "?merchantId=".$params['merchantId'];
+				$url .= "&paymentType=checkTransactionDetails";
+				$url .= "&gatewayReference=".$params['gatewayReference'];
+				$url .= "&renderFormat";
+
+				$response = file_get_contents($url);
+
+				if(!$response) return false;
+
+				$result = json_decode($response, true);
+				
+				if($result['success'] == "0") {
+					$order->update_status('Cancelled');
+					print "Transaction refusé";
+				}
+				else {
+					$order->update_status('Completed');
+					print "Transaction accepté";
+				}
 			}
 
 		}
