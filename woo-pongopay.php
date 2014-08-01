@@ -113,7 +113,7 @@ function init_pongopay_gateway_class() {
 			$url .= "&cardExpiryYear=".$params['cardExpiryYear'];
 			$url .= "&currency=".$params['currency'];
 			$url .= "&returnURL=".urlencode($params['returnURL']);
-			$url .= "&force3dsecure=FORCE";
+			/*$url .= "&force3dsecure=FORCE";*/
 
 			$response = file_get_contents($url);
 
