@@ -1,16 +1,16 @@
 <?php
 /**
- * @package Akismet
+ * @package PongoPay
  */
 /*
-Plugin Name: Woo PongoPay
+Plugin Name: WooCommerce PongoPay
 Plugin URI: http://www.pongosoft.com/
-Description: PongoPay Description
+Description: PongoPay
 Version: 1.0.0
 Author: PongoSoft
 Author URI: http://www.pongosoft.com
 License: GPLv2 or later
-Text Domain: woo-pongopay
+Text Domain: woocommerce-pongopay
 */
 
 /*
@@ -78,12 +78,11 @@ function init_pongopay_gateway_class() {
 		function api_transaction($order) {
 			global $woocommerce;
 
-			$api_url = 'https://www.paygenius.co.za/api/web-service/transact';
+			$api_url = 'https://www.paygenius.co.za/api/web-service/transact/manual-payment';
 
 			$params = array();
 
 			$params['gatewayType'] = "0";
-			$params['paymentType'] = "ManualPayment";
 
 			$params['merchantId'] = $this->merchantid;
 			$merchantid = $this->merchantid;
@@ -91,6 +90,11 @@ function init_pongopay_gateway_class() {
 			$params['amount'] = $woocommerce->cart->total * 100;
 			$params['cardNumber'] = str_replace(" ", "", $_POST['pongopay-card-number']);
 			$params['cardCvv'] = $_POST['pongopay-card-cvc'];
+			
+			$birthday = explode(' / ', $_POST['pongopay-birthday']);
+			$birthdayTimestamp = mktime(0, 0, 0, $birthday[1], $birthday[0], $birthday[2]);
+
+			$params['birthday'] = $birthdayTimestamp;
 
 			$params['returnURL'] = $this->get_return_url( $order );
 
@@ -102,10 +106,9 @@ function init_pongopay_gateway_class() {
 
 			$params['currency'] = $order->get_order_currency();
 
-			$url = "https://www.paygenius.co.za/api/web-service/transact";
+			$url = $api_url;
 			$url .= "?merchantId=".$params['merchantId'];
 			$url .= "&amount=".$params['amount'];
-			$url .= "&paymentType=".$params['paymentType'];
 			$url .= "&gatewayType=".$params['gatewayType'];
 			$url .= "&cardNumber=".$params['cardNumber'];
 			$url .= "&cardCvv=".$params['cardCvv'];
@@ -113,14 +116,29 @@ function init_pongopay_gateway_class() {
 			$url .= "&cardExpiryYear=".$params['cardExpiryYear'];
 			$url .= "&currency=".$params['currency'];
 			$url .= "&returnURL=".urlencode($params['returnURL']);
-			/*$url .= "&force3dsecure=FORCE";*/
+			$url .= "&name=".$order->billing_first_name;
+			$url .= "&surname=".$order->billing_last_name;
+			$url .= "&email=".$order->billing_email;
+			$url .= "&countryOfResidence=".$order->billing_country;
+			$url .= "&nationality=".$order->billing_country;
+			$url .= "&birthday=".$params['birthday'];
+
+			//$url .= "&force3dsecure=FORCE";
+
+			error_log($url);
 
 			$response = file_get_contents($url);
+
+			if(substr ($response, 0, 4) == 'null') :
+				$response = substr ($response, 4);
+		    endif;
 
 			if(!$response) return false;
 
 			$result = json_decode($response, true);
 			$result['merchant_id'] = $params['merchant_id'];
+
+			error_log(print_r($result, true));
 
 			return $result;
 		}
@@ -131,20 +149,28 @@ function init_pongopay_gateway_class() {
 			$cardNumber = $_POST['pongopay-card-number'];
 			$cardExpiry = $_POST['pongopay-card-expiry'];
 			$cardCVC = $_POST['pongopay-card-cvc'];
+			$birthday = $_POST['pongopay-birthday'];
 
 			//Check fields not empty
 			if($cardNumber == "" or
 				$cardExpiry == "" or 
-				$cardCVC == "") {
+				$cardCVC == "" or 
+				$birthday == "") {
 
-				$woocommerce->add_error( __('Vous devez replir tous les champs du formulaire correctement', 'woothemes') );
+				wc_add_notice( __('Vous devez replir tous les champs du formulaire correctement', 'woothemes'), 'error' );
 				return;
 			}
 
 		}
 
 		function payment_fields() {
-	        return $this->credit_card_form();
+			//return 'test';
+	        return $this->credit_card_form(array(), array(
+	        	'<p class="form-row form-row-first woocommerce-validated">
+	        	  <label for="pongopay-birthday">Birth Day (JJ/MM/YYYY)<span class="required">*</span></label>
+	        	  <input id="pongopay-birthday" class="input-text" type="text" autocomplete="off" placeholder="JJ / MM / YYYY" name="pongopay-birthday">
+	        	</p>'
+	        ));
 		}
 
 		function process_payment( $order_id ) {
@@ -155,9 +181,10 @@ function init_pongopay_gateway_class() {
 			$apiTransact = $this->api_transaction($order);
 
 			if($apiTransact['success'] == 0) {
-				$woocommerce->add_error( 'success = 0' );
+				wc_add_notice('success = 0', 'error' );
+
 				foreach ($apiTransact['errors'] as $error) {
-					$woocommerce->add_error( $error );
+					wc_add_notice($error, 'error' );
 				}
 
 				return;
@@ -197,9 +224,8 @@ function init_pongopay_gateway_class() {
 				$params['gatewayReference'] = $_REQUEST['gatewayReference'];
 				$params['merchantId'] = $this->merchantid;
 
-				$url = "https://www.paygenius.co.za/api/web-service/transact";
+				$url = "https://www.paygenius.co.za/api/web-service/transact/check-transaction-details";
 				$url .= "?merchantId=".$params['merchantId'];
-				$url .= "&paymentType=checkTransactionDetails";
 				$url .= "&gatewayReference=".$params['gatewayReference'];
 				$url .= "&renderFormat";
 
